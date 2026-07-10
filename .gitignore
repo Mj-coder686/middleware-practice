@@ -1,0 +1,24 @@
+# IDEA
+.idea/
+*.iml
+
+# Maven
+target/
+
+# Compiled class files
+*.class
+
+# Package files
+*.jar
+*.war
+*.ear
+
+# Log files
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git subdirectory (removed)
+git/
