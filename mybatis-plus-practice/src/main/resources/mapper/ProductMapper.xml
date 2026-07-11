@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.mj.middleware.mp.mapper.ProductMapper">
+
+    <!-- 按品牌统计商品数量
+         SQL: SELECT brand, COUNT(*) AS count FROM t_product WHERE deleted = 0 GROUP BY brand ORDER BY count DESC -->
+    <select id="countByBrand" resultType="java.util.Map">
+        SELECT brand, COUNT(*) AS count
+        FROM t_product
+        WHERE deleted = 0
+        GROUP BY brand
+        ORDER BY count DESC
+    </select>
+
+    <!-- 批量涨价
+         SQL: UPDATE t_product SET price = price + #{increaseAmount}
+              WHERE category = #{category} AND status = 1 AND deleted = 0 -->
+    <update id="batchUpdatePrice">
+        UPDATE t_product
+        SET price = price + #{increaseAmount}
+        <where>
+            <if test="category != null and category != ''">
+                AND category = #{category}
+            </if>
+            AND status = 1
+            AND deleted = 0
+        </where>
+    </update>
+
+    <!-- 多条件复杂查询（动态 SQL）
+         SQL 示例:
+         SELECT * FROM t_product WHERE deleted = 0
+           AND (name LIKE '%keyword%' OR description LIKE '%keyword%')
+           AND brand = #{brand}
+           AND price >= #{minPrice}
+           AND stock >= #{minStock}
+           AND status = 1
+         ORDER BY score DESC, sales DESC -->
+    <select id="complexQuery" resultType="com.mj.middleware.mp.entity.ProductMP">
+        SELECT * FROM t_product
+        <where>
+            deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (name LIKE CONCAT('%', #{keyword}, '%')
+                  OR description LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="brand != null and brand != ''">
+                AND brand = #{brand}
+            </if>
+            <if test="minPrice != null">
+                AND price &gt;= #{minPrice}
+            </if>
+            <if test="minStock != null">
+                AND stock &gt;= #{minStock}
+            </if>
+            AND status = 1
+        </where>
+        ORDER BY score DESC, sales DESC
+    </select>
+
+</mapper>
