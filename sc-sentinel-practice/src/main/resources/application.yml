@@ -1,0 +1,28 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: sentinel-practice
+
+  cloud:
+    sentinel:
+      transport:
+        dashboard: localhost:8858          # Sentinel Dashboard 地址
+        port: 8719                         # 与 Dashboard 通信端口
+      eager: true                          # 立即初始化 (否则首次访问才加载)
+
+# 可选: Nacos 动态规则 (你来练习)
+#      datasource:
+#        flow:
+#          nacos:
+#            server-addr: localhost:8848
+#            dataId: sentinel-flow-rules
+#            groupId: SENTINEL_GROUP
+#            rule-type: flow
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
