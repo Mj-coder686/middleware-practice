@@ -1,0 +1,43 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: gateway-practice
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+    gateway:
+      # 你来练习: 在这里配置路由规则
+      routes:
+        # 示例: 路由到 Nacos 中注册的服务
+        # - id: nacos-route
+        #   uri: lb://nacos-practice   # lb:// 表示负载均衡
+        #   predicates:
+        #     - Path=/nacos/**
+        #   filters:
+        #     - StripPrefix=1
+
+        # 示例: 路由到外部 URL
+        # - id: baidu-route
+        #   uri: https://www.baidu.com
+        #   predicates:
+        #     - Path=/baidu/**
+        #   filters:
+        #     - StripPrefix=1
+
+      # 全局跨域配置
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
