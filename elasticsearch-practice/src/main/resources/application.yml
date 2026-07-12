@@ -1,0 +1,15 @@
+server:
+  port: 8084
+
+spring:
+  elasticsearch:
+    uris: http://localhost:9200
+    username:
+    password:
+
+# Knife4j 配置
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
