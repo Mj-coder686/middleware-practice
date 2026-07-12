@@ -1,0 +1,14 @@
+# Nacos 配置中心专用 (优先级高于 application.yml)
+spring:
+  cloud:
+    nacos:
+      config:
+        server-addr: localhost:8848
+        file-extension: yaml
+        group: DEFAULT_GROUP
+        namespace: public
+        # 你来练习: 共享配置、扩展配置
+        # shared-configs:
+        #   - data-id: shared-redis.yaml
+        #     group: SHARED_GROUP
+        #     refresh: true
