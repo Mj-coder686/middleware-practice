@@ -15,6 +15,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -117,9 +118,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
             @Override
             public Object doInRedis(RedisConnection connection) throws DataAccessException {
                 for (Long fanId : fanIdList){
-                    if (blogId != null) {
-                        connection.zAdd(FEED_PREFIX.getBytes(StandardCharsets.UTF_8), publishTs, blogId.toString().getBytes(StandardCharsets.UTF_8));
-                    }
+                    String fanskey = FEED_PREFIX + fanId;
+                    connection.zAdd(fanskey.getBytes(StandardCharsets.UTF_8), publishTs, blogId.toString().getBytes(StandardCharsets.UTF_8));
                 }
                 return null;
             }
@@ -292,52 +292,44 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
     @Override
     public List<Blog> getBlogsByUser(Long userId, int pageNum, int pageSize) {
         String authorkey = BLOG_AUTHOR_PREFIX + userId;
-        Set<String> range = stringRedisTemplate.opsForZSet().reverseRange(authorkey, pageNum - 1, pageNum + pageSize - 1);
-        if (range == null) {
+
+        // 1. 修复分页区间 Bug，计算出正确的 start 和 end
+        int start = (pageNum - 1) * pageSize;
+        int end = start + pageSize - 1;
+
+        Set<String> range = stringRedisTemplate.opsForZSet().reverseRange(authorkey, start, end);
+        if (range == null || range.isEmpty()) {
             return Collections.emptyList();
         }
+
         List<String> keys = range.stream()
                 .map(id -> BLOG_FULL_PREFIX + id)
                 .toList();
 
-        // 使用原生的 RedisConnection 确保拿到的是未经序列化的原始 byte[]
+        // 2. 使用强转 Lambda 表达式，既不报红，又省去了匿名内部类的臃肿
+        // 同时用 opsForHash().entries 替代底层 connection，彻底跟 byte[] 说再见！
         List<Object> pipeResult = stringRedisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             for (String key : keys) {
-                connection.hashCommands().hGetAll(key.getBytes(StandardCharsets.UTF_8));
+                stringRedisTemplate.opsForHash().entries(key);
             }
             return null;
         });
 
-        List<Blog> blogList = pipeResult.stream()
-                // 安全起见，先过滤掉 null，防止 Redis 中有些 key 不存在导致管道返回 null
+        // 3. 干净纯粹的 Stream 流转换，出来的直接就是 String 类型的 Map
+        return pipeResult.stream()
                 .filter(Objects::nonNull)
-                // 转换
-                .map(o -> {
-                    // 确保类型正确再转，如果 stringRedisTemplate 自动转成了 Map<String, String>，就直接用
-                    if (o instanceof Map<?, ?> rawMap) {
-                        if (rawMap.isEmpty()) return Collections.<String, String>emptyMap();
-                        // 检查判断：如果是 byte[] 则调用你的 convertByteMap
-                        Map.Entry<?, ?> entry = rawMap.entrySet().iterator().next();
-                        if (entry.getKey() instanceof byte[]) {
-                            return convertByteMap((Map<byte[], byte[]>) rawMap);
-                        }
-                        // 如果已经是 String 类型的 Map，直接强转返回
-                        return (Map<String, String>) rawMap;
-                    }
-                    return Collections.<String, String>emptyMap();
-                })
-                .filter(m -> !m.isEmpty() && m.containsKey("id")) // 过滤空数据，且确保核心字段存在
-                .map(m -> Blog.builder()
-                        .id(Long.parseLong(m.get("id")))
-                        .userId(Long.parseLong(m.get("userId")))
-                        .nickname(m.get("nickname"))
-                        .title(m.get("title"))
-                        .content(m.get("content"))
-                        .images(m.get("images"))
-                        .likedCount(m.get("likedCount") == null ? 0L : Long.parseLong(m.get("likedCount")))
+                .map(obj -> (Map<Object, Object>) obj) // 强转为普通 Map
+                .filter(map -> !map.isEmpty() && map.containsKey("id")) // 过滤空数据，确保核心字段存在
+                .map(map -> Blog.builder()
+                        .id(Long.parseLong((String) map.get("id")))
+                        .userId(Long.parseLong((String) map.get("userId")))
+                        .nickname((String) map.get("nickname"))
+                        .title((String) map.get("title"))
+                        .content((String) map.get("content"))
+                        .images((String) map.get("images"))
+                        .likedCount(map.get("likedCount") == null ? 0L : Long.parseLong((String) map.get("likedCount")))
                         .build())
                 .toList();
-        return blogList;
     }
     public static Map<String, String> convertByteMap(Map<byte[], byte[]> byteMap) {
         Map<String, String> map = new HashMap<>(byteMap.size());
@@ -347,5 +339,76 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
             map.put(field, val);
         });
         return map;
+    }
+
+    @Override
+    public Map<String, Object> getFeed(Long max, Integer offset) {
+        Long currentUser = UserContext.getCurrentUser();
+        String userKey = FEED_PREFIX + currentUser;
+
+        // 1. ZSet 滚动分页查询
+        Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate
+                .opsForZSet()
+                .reverseRangeByScoreWithScores(userKey, 0, max, offset, 5);
+
+        if (typedTuples == null || typedTuples.isEmpty()){
+            return Collections.emptyMap();
+        }
+
+        // 2. 解析 ZSet 数据（获取 ID、计算 minTime 和 os）
+        List<Long> ids = new ArrayList<>(typedTuples.size());
+        long minTime = 0;
+        int os = 0;
+        for (ZSetOperations.TypedTuple<String> typedTuple : typedTuples) {
+            ids.add(Long.parseLong(Objects.requireNonNull(typedTuple.getValue())));
+            long time = Objects.requireNonNull(typedTuple.getScore()).longValue();
+            if (time == minTime) {
+                os++;
+            } else {
+                minTime = time;
+                os = 1;
+            }
+        }
+
+        // 3. 管道批量查询 Hash（用 RedisTemplate 封装的方法，避开底层的 connection 和 byte[] 转换）
+        List<Object> pipeResult = stringRedisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            for (Long id : ids) {
+                // stringRedisTemplate 的序列化器会自动帮你处理 String 到 byte[] 的转换
+                stringRedisTemplate.opsForHash().entries(BLOG_LITE_PREFIX + id);
+            }
+            return null;
+        });
+
+        // 4. 解析管道结果并组装成 Blog 对象
+        List<Blog> blogList = pipeResult.stream()
+                .filter(Objects::nonNull)
+                .map(obj -> (Map<Object, Object>) obj) // 转换成普通 Map
+                .filter(map -> !map.isEmpty() && map.containsKey("id")) // 过滤掉空 Hash
+                .map(this::mapToBlog) // 抽离出来的转换方法，让主流程变干净！
+                .toList();
+
+        // 5. 封装最终的滚动分页结果
+        Map<String, Object> result = new HashMap<>(3);
+        result.put("blogs", blogList);
+        result.put("minTime", minTime);
+        result.put("offset", os);
+
+        return result;
+    }
+
+    /**
+     * 职责单一：将 Redis 读出的 Map 转换为 Blog 对象
+     */
+    private Blog mapToBlog(Map<Object, Object> map) {
+        // 既然是用 stringRedisTemplate，这里取出来的 Key 和 Value 都是 String
+        return Blog.builder()
+                .id(Long.parseLong((String) map.get("id")))
+                .userId(Long.parseLong((String) map.get("userId")))
+                .nickname((String) map.get("nickname"))
+                .title((String) map.get("title"))
+                .content((String) map.get("content"))
+                .images((String) map.get("images"))
+                .likedCount(map.get("likedCount") == null ? 0L : Long.parseLong((String) map.get("likedCount")))
+                .build();
     }
 }

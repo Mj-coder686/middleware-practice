@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 博客接口 — 大V发博客 / 点赞 / Feed 推送
@@ -67,5 +68,15 @@ public class BlogController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int pageNum,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") int pageSize) {
         return Result.success(blogService.getBlogsByUser(userId, pageNum, pageSize));
+    }
+
+    @Operation(summary = "查询推送过来的博客")
+    @GetMapping("/feed")
+    public Map<String, Object> getFeed(
+            @RequestParam("lastId") Long max,
+            @RequestParam(value = "offset", defaultValue = "0") Integer offset
+    )
+        {
+        return blogService.getFeed(max, offset);
     }
 }

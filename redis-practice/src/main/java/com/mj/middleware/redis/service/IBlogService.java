@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.mj.middleware.redis.entity.Blog;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 博客业务接口
@@ -30,4 +31,6 @@ public interface IBlogService extends IService<Blog> {
 
     /** 查询博主的博客列表 */
     List<Blog> getBlogsByUser(Long userId, int pageNum, int pageSize);
+
+    Map<String, Object> getFeed(Long max, Integer offset);
 }

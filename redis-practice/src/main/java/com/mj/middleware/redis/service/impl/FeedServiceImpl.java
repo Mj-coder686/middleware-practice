@@ -1,13 +1,22 @@
 package com.mj.middleware.redis.service.impl;
 
 import com.mj.middleware.redis.entity.Feed;
+import com.mj.middleware.redis.entity.Follow;
 import com.mj.middleware.redis.mapper.FeedMapper;
 import com.mj.middleware.redis.service.IFeedService;
+import com.mj.middleware.redis.service.IFollowService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Feed 流业务实现 — TODO: 使用 Redis Set + List / SortedSet 实现
@@ -18,28 +27,127 @@ import java.util.List;
 public class FeedServiceImpl implements IFeedService {
 
     private final FeedMapper feedMapper;
+    private final StringRedisTemplate  redisTemplate;
+    private final IFollowService followService;
 
     @Override
+
     public void follow(Long followerId, Long followeeId) {
-        // TODO: SADD follow:{followerId} followeeId
-        // TODO: SADD fans:{followeeId} followerId
+
+        if (followerId == null || followeeId == null) {
+            throw new RuntimeException("参数错误");
+        }
+
+        String followKey = "follow:" + followerId;
+        String fansKey = "fans:" + followeeId;
+
+
+        Boolean isFollow = redisTemplate
+                .opsForSet()
+                .isMember(followKey, followeeId.toString());
+
+        if (Boolean.TRUE.equals(isFollow)) {
+            throw new RuntimeException("已经关注");
+        }
+
+
+        redisTemplate.multi();
+
+        redisTemplate.opsForSet()
+                .add("follow:" + followerId, followeeId.toString());
+
+        redisTemplate.opsForSet()
+                .add("fans:" + followeeId, followerId.toString());
+
+        redisTemplate.exec();
+        followService.follow(followerId, followeeId);
     }
 
     @Override
     public void unfollow(Long followerId, Long followeeId) {
-        // TODO: SREM follow:{followerId} followeeId
-        // TODO: SREM fans:{followeeId} followerId
+        if (followerId == null || followeeId == null) {
+            throw new RuntimeException("参数错误");
+        }
+
+        String followKey = "follow:" + followerId;
+        String fansKey = "fans:" + followeeId;
+
+
+        Boolean isFollow = redisTemplate
+                .opsForSet()
+                .isMember(followKey, followeeId.toString());
+
+        if (!Boolean.TRUE.equals(isFollow)) {
+            throw new RuntimeException("未取消关注");
+        }
+        redisTemplate.execute(new SessionCallback<>() {
+
+            @Override
+            public Object execute(RedisOperations operations) {
+
+                operations.multi();
+
+                operations.opsForSet()
+                        .remove(followKey, followeeId.toString());
+
+                operations.opsForSet()
+                        .remove(fansKey, followerId.toString());
+
+                return operations.exec();
+            }
+        });
+        followService.unfollow(followerId, followeeId);
     }
+
+
 
     @Override
     public List<Long> getFollowing(Long userId) {
-        // TODO: SMEMBERS follow:{userId}
-        return null;
+        if (userId == null){
+            throw new RuntimeException("参数错误");
+        }
+        String fansKey = "fans:" + userId;
+        Boolean aBoolean = redisTemplate.hasKey(fansKey);
+       List<Long> list = new ArrayList<>();
+        if (!aBoolean) {
+            List<Follow> flist = followService.lambdaQuery()
+                    .eq(Follow::getFollowedId, userId)
+                    .list();
+            list = flist.stream()
+                    .map(Follow::getFollowerId)
+                    .toList();
+            return list;
+        }
+        list = Objects.requireNonNull(redisTemplate.opsForSet()
+                        .members(fansKey))
+                .stream()
+                .map(Long::parseLong)
+                .toList();
+        return list;
     }
 
     @Override
     public List<Long> getFollowers(Long userId) {
-        // TODO: SMEMBERS fans:{userId}
+        if (userId == null){
+            throw new RuntimeException("参数错误");
+        }
+        String followKey = "follow:" + userId;
+        Boolean aBoolean = redisTemplate.hasKey(followKey);
+        List<Long> list = new ArrayList<>();
+        if (!aBoolean) {
+            List<Follow> flist = followService.lambdaQuery()
+                    .eq(Follow::getFollowerId, userId)
+                    .list();
+            list = flist.stream()
+                    .map(Follow::getFollowedId)
+                    .toList();
+            return list;
+        }
+        list = Objects.requireNonNull(redisTemplate.opsForSet()
+                        .members(followKey))
+                .stream()
+                .map(Long::parseLong)
+                .toList();
         return null;
     }
 

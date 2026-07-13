@@ -6,6 +6,7 @@ import com.mj.middleware.redis.mapper.FollowMapper;
 import com.mj.middleware.redis.service.IFollowService;
 import jakarta.annotation.Resource;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -21,6 +22,7 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @Async
     public void follow(Long followerId, Long followedId) {
         // 1. 判断是否已关注
         Follow rel = baseMapper.selectFollowRel(followerId, followedId);
@@ -35,15 +37,11 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
                 .build();
         this.save(follow);
 
-        // 3. 同步Redis Set
-        String followKey = KEY_FOLLOW + followerId;
-        String fanKey = KEY_FAN + followedId;
-        redisTemplate.opsForSet().add(followKey, followedId);
-        redisTemplate.opsForSet().add(fanKey, followerId);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    @Async
     public void unfollow(Long followerId, Long followedId) {
         // 1. 删除数据库记录
         this.lambdaUpdate()
