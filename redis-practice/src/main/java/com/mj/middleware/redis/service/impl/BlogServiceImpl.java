@@ -114,15 +114,12 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
             return blogId;
         }
         // 5. Redis Pipeline批量推送Feed ZSet，stream遍历粉丝
-        stringRedisTemplate.executePipelined(new RedisCallback<Object>() {
-            @Override
-            public Object doInRedis(RedisConnection connection) throws DataAccessException {
-                for (Long fanId : fanIdList){
-                    String fanskey = FEED_PREFIX + fanId;
-                    connection.zAdd(fanskey.getBytes(StandardCharsets.UTF_8), publishTs, blogId.toString().getBytes(StandardCharsets.UTF_8));
-                }
-                return null;
+        List<Object> pipelined = stringRedisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            for (Long fanId : fanIdList) {
+                String fanskey = FEED_PREFIX + fanId;
+                connection.zAdd(fanskey.getBytes(StandardCharsets.UTF_8), publishTs, blogId.toString().getBytes(StandardCharsets.UTF_8));
             }
+            return null;
         });
         try {
             String authorkey = BLOG_AUTHOR_PREFIX + authorId;
