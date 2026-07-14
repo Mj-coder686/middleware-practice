@@ -30,7 +30,7 @@ public class VoucherController {
 
     @Operation(summary = "查询优惠券详情")
     @GetMapping("/{id}")
-    public Result<Voucher> getVoucher(@PathVariable Long id) {
+    public Result<Voucher> getVoucher(@PathVariable Long id) throws InterruptedException {
         return Result.success(voucherService.getById(id));
     }
 

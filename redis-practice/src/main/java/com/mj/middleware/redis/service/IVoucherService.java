@@ -11,7 +11,7 @@ public interface IVoucherService {
     void add(Voucher voucher);
 
     /** 查询优惠券详情 */
-    Voucher getById(Long id);
+    Voucher getById(Long id) throws InterruptedException;
 
     /** 购买普通优惠券 */
     Long buyVoucher(Long voucherId, Long userId);

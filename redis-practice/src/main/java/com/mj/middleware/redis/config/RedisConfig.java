@@ -5,6 +5,11 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.codec.JsonJacksonCodec;
+import org.redisson.config.Config;
+import org.redisson.config.SingleServerConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -22,6 +27,19 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  */
 @Configuration
 public class RedisConfig {
+
+
+    @Bean
+    public RedissonClient redissonClient() {
+//        连接参数
+        Config config = new Config();
+//        JSON序列化
+        config.setCodec(new JsonJacksonCodec());
+        SingleServerConfig singleServerConfig = config.useSingleServer();
+        singleServerConfig.setAddress("redis://192.168.56.10:6379")
+                .setPassword("123456");
+        return Redisson.create(config);
+    }
 
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {

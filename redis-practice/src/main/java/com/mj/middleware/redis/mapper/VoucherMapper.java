@@ -1,7 +1,10 @@
 package com.mj.middleware.redis.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.mj.middleware.redis.entity.Voucher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ibatis.annotations.Mapper;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -13,12 +16,10 @@ import org.springframework.stereotype.Repository;
  *   seckill:ordered:{voucherId}     → Set（已下单用户集合）
  *   global:voucherId                → String（优惠券 ID 自增器）
  */
-@Slf4j
-@Repository
-@RequiredArgsConstructor
-public class VoucherMapper {
 
-    private final StringRedisTemplate stringRedisTemplate;
+public interface VoucherMapper extends BaseMapper<Voucher> {
+
+
 
     // TODO: void initSeckillStock(Long voucherId, int stock)
     // TODO: int getSeckillStock(Long voucherId)
