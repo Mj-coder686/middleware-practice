@@ -4,6 +4,13 @@ server:
 spring:
   application:
     name: rabbitmq-practice
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/midd?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf-8
+    username: root
+    password: root
+
   rabbitmq:
     host: localhost
     port: 5672
@@ -11,18 +18,21 @@ spring:
     password: guest
     virtual-host: /
     # 发布确认
-    publisher-confirm-type: correlated   # 异步确认（推荐）
-    publisher-returns: true              # 开启回退消息
+      # 1. 开启“发布确认”：每次发送都会有一个唯一的回调
+    publisher-confirm-type: correlated
+      # 2. 开启“回退通道”：如果消息路由不到队列，不要丢弃，退回给生产者
+    publisher-returns: true
     # 消费端配置
+      # 消费端配置
     listener:
-      simple:
-        prefetch: 1                      # 每次只消费 1 条（公平分发）
-        acknowledge-mode: manual         # 手动确认
-        retry:
-          enabled: true                  # 开启重试
-          initial-interval: 1000         # 首次重试间隔
-          max-attempts: 3                # 最大重试次数
-          multiplier: 2                  # 间隔倍数
+        simple:
+          prefetch: 1
+          acknowledge-mode: auto         # ⭐️ 先改成 auto！让框架自动处理 ACK
+          retry:
+            enabled: true
+            initial-interval: 1000
+            max-attempts: 3
+            multiplier: 2           # 间隔倍数
 
 springdoc:
   swagger-ui:
