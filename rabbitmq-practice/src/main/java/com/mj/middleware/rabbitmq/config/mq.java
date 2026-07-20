@@ -2,10 +2,7 @@ package com.mj.middleware.rabbitmq.config;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.DirectExchange;
-import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -39,7 +36,10 @@ public class mq {
 
     @Bean
     public Queue pointsReleaseQueue() {
-        return new Queue(OrderConstants.POINTS_RELEASE_QUEUE , true);
+        return QueueBuilder
+                .durable(OrderConstants.POINTS_RELEASE_QUEUE)
+                .lazy()
+                .build();
     }
 
     @Bean

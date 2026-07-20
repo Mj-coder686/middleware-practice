@@ -3,6 +3,7 @@ package com.mj.middleware.rabbitmq.service.impl;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.mj.middleware.rabbitmq.config.DelayedMqConfig;
 import com.mj.middleware.rabbitmq.config.OrderConstants;
 import com.mj.middleware.rabbitmq.entity.OrderMP;
 import com.mj.middleware.rabbitmq.mapper.OrderMapper;
@@ -47,10 +48,19 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, OrderMP> implemen
         msg.put("userId", order.getUserId());
         int pointValue = order.getTotalAmount().intValue() / 10;
         msg.put("pointValue", pointValue);
+//        rabbitTemplate.convertAndSend(
+//                OrderConstants.ORDER_DIRECT_EXCHANGE,
+//                OrderConstants.ORDER_PAY_SUCCESS_ROUTING_KEY,
+//                msg
+//        );
         rabbitTemplate.convertAndSend(
-                OrderConstants.ORDER_DIRECT_EXCHANGE,
-                OrderConstants.ORDER_PAY_SUCCESS_ROUTING_KEY,
-                msg
+                DelayedMqConfig.DELAYED_EXCHANGE,
+                DelayedMqConfig.DELAYED_ROUTING_KEY,
+                msg,
+                message -> {
+                    message.getMessageProperties().setHeader("x-delay", 1000 * 60 * 5);
+                    return message;
+                }
         );
         System.out.println("消息发送成功: " + msg);
     }

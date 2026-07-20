@@ -1,15 +1,15 @@
-package com.mj.middleware.nacos;
+package com.mj.middleware.nacos.consumer;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
-@EnableFeignClients          // 开启 Feign 远程调用
-@EnableDiscoveryClient       // 开启服务注册发现
+@EnableFeignClients
+@EnableDiscoveryClient
 @SpringBootApplication
-public class NacosApplication {
+public class ConsumerApplication {
     public static void main(String[] args) {
-        SpringApplication.run(NacosApplication.class, args);
+        SpringApplication.run(ConsumerApplication.class, args);
     }
 }

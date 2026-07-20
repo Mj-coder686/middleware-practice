@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: nacos-provider
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      config:
+        server-addr: localhost:8848
+        username: nacos       # 🌟 加上这一行
+        password: nacos       # 🌟 加上这一行
+        file-extension: yaml
+        shared-configs:
+          - data-id: db_redis.yml       # 👈 确保这边的名字和后缀跟你在 Nacos 上创的完全一致
+            refresh: true
+          - data-id: component-mybatis-plus.yaml
+            refresh: true
+      discovery:
+          server-addr: localhost:8848
+          username: nacos       # 👈 必须补上这一行！
+          password: nacos       # 👈 必须补上这一行！

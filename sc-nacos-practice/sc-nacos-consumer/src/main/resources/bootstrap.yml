@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: nacos-consumer
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      # 1. 配置中心鉴权（之前配过的话保留即可）
+      config:
+        server-addr: localhost:8848
+        file-extension: yaml
+        group: DEFAULT_GROUP
+        username: nacos
+        password: nacos
+        shared-configs:
+          - data-id: db_redis.yaml
+            refresh: true
+      
+      # 2. 🌟 重点补上这里：服务注册中心的鉴权
+      discovery:
+        server-addr: localhost:8848
+        username: nacos       # 👈 必须补上这一行！
+        password: nacos       # 👈 必须补上这一行！
